@@ -6,7 +6,12 @@
 
 ## How to use
 
-First, we will need to create our Docker image with an installation of Quatro. This can be achieved by running the following command: `make build`.
+First, we will need to create our Docker image with an installation of Quatro (and his dependencies). This can be achieved by running the following command: `make build`.
+
+This done, the Docker image `bosa/quarto` will be available.
+
+
+
 
 The `build` command will take time and will create a 1.5 GB huge image. We need to do this only once.
 

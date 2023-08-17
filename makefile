@@ -1,4 +1,4 @@
-CONTAINER_NAME :=$(or $(CONTAINER_NAME),quatro_static_file)
+CONTAINER_NAME :=$(or $(CONTAINER_NAME),quatro-render)
 QUATRO_PORT_NUMBER :=$(or $(QUATRO_PORT_NUMBER),8080)
 TIMEZONE :=$(or $(TIMEZONE),Europe/Brussels)
 
@@ -15,19 +15,25 @@ help: ## Show the help with the list of commands
 
 ##@ Quatro
 
-.PHONY: build
-build: ## Build the Docker images with Quatro
-	docker build -f .docker/Dockerfile -t cavo/quatro:20.04 .
+.PHONY: bash
+bash: ## Start an interactive shell session
+# docker run -it bosa/quatro:20.04 /bin/bash
+	COMPOSE_FILE=composer.yaml docker compose exec -it ${CONTAINER_NAME} /bin/bash
 
-.PHONY: convert-html
-convert-html: ## Convert the qmd file to HTML
-	docker build -f .docker/Dockerfile-static -t cavo/quatro:static-file . --no-cache
+.PHONY: build
+build: ## Build the Docker image that contains Quatro and required libraries
+	docker build -f .docker/Dockerfile-quarto -t bosa/quatro:20.04 .
+
+# .PHONY: render
+# render: ## Convert the input file to the desired format
+# 	docker build -f .docker/Dockerfile-render -t bosa/quatro:render . --no-cache
 
 .PHONY: start
 start: ## Open the web interface and show the document
-	@-docker container rm --force ${CONTAINER_NAME} >/dev/null 2>&1 || true
+# @-docker container rm --force ${CONTAINER_NAME} >/dev/null 2>&1 || true
 
-	docker run -d --name ${CONTAINER_NAME} -p ${QUATRO_PORT_NUMBER}:8080 -e TZ=${TIMEZONE} cavo/quatro:static-file
-	docker cp ${CONTAINER_NAME}:/app/ ${PWD}/output
+# docker run -d --name ${CONTAINER_NAME} -p ${QUATRO_PORT_NUMBER}:8080 -e TZ=${TIMEZONE} bosa/quatro:static-file
+	COMPOSE_FILE=composer.yaml docker compose up -d
+# docker cp ${CONTAINER_NAME}:/app/ ${PWD}/output
 
-	-@sensible-browser http://127.0.0.1:${QUATRO_PORT_NUMBER}/index.html
+# -@sensible-browser http://127.0.0.1:${QUATRO_PORT_NUMBER}/index.html

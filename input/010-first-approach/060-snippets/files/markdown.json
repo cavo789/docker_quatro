@@ -1,0 +1,7 @@
+{
+    "url": {
+        "prefix": "url",
+        "description": "Add an url tags",
+        "body": ["[${1:URL}](${1:URL})"]
+    }
+}
