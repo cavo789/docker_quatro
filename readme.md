@@ -1,24 +1,67 @@
-# Using Quatro in a Docker container
+# Using Quarto in a Docker container
 
 > [Video - How to run quarto documents in docker containers (pt. 1). Also: KaosMaps](https://youtu.be/PKSz_2BHPyg) / [Github repo](https://github.com/kaosmaps/quartainer/tree/main)
 >
-> [Quatro Docker examples](https://github.com/analythium/quarto-docker-examples)
+> [Quarto Docker examples](https://github.com/analythium/quarto-docker-examples)
 
 ## How to use
 
-First, we will need to create our Docker image with an installation of Quatro (and his dependencies). This can be achieved by running the following command: `make build`.
+### Your first use, creating the Docker image
 
-This done, the Docker image `bosa/quarto` will be available.
+When you don't have it build the Docker image, you'll need to first run the next command on your computer:
 
+```bash
+make build
+```
 
+If you don't have `make` yet on your machine, you'll get an error message. Please install `make` by running the command below. When done, run `make build` once more (should works now).
 
+```bash
+sudo apt-get update && sudo apt-get -y install make
+```
 
-The `build` command will take time and will create a 1.5 GB huge image. We need to do this only once.
+Running `make build` for the first time will create the image. This step can be very long (five minutes or more depending on your machine). When successfully done, you'll have a new Docker image, you can see it with:
 
-The second action to do, every time we will update our source document, is `make convert-html`.
+```bash
+docker image list | grep bosa/quarto
+```
 
-That action will convert the `./input/index.qmd` file as an HTML document and create if needed all the necessary files (like images). The result of the `convert-html` action will be saved, by Quatro, in a `output` directory.
+*The Docker image will be huge (2.5GB or more) due to the high number of installed dependencies.*
 
-The last action will be `make start` to start the browser and show the converted file and, too, to copy the result in your, local, `output` folder.
+### Now use it and render your documentation
 
-So, in short, just run `clear && make build && make convert-html && make start` and you're sure everything is working. The `make build´ action is slow only during the first execution so it's not a problem to run it again and again.
+Now, every time you'll need to convert a documentation, just run `make render` on the console.
+
+> ℹ️ **TIP**
+> If you're a developer and you've modified the bash scripts in the .docker folder, just run `make build && make render` to make sure the newer version are taken into account.
+
+By running `make render`, it's supposed you'll convert a file called `index.qmd`. If this is not your case, please run `make render QMD_FILE="your_file.qmd"` where `your_file.qmd` exists and correspond to the file to render.
+
+Assumptions: by running `make render` it's supposed 
+
+* the source file will be found in a subfolder called `input` and
+* rendered files will be stored in a subfolder called `output`.
+
+To make things explicit, your directory structure will looks be something like below. By running `make render QMD_FILE="your_file.qmd"` in the `/your_project` folder, the script will search for the `input/your_file.qmd` in your directory structure and, if found, will render it and save the result to `output/your_file.html`.
+
+```text
+/your_project
+├── input
+│   ├── your_file.qmd
+├── output
+│   ├── your_file.html
+```
+
+### Starting an interactive shell in the Docker image
+
+In case of needs, you can *jump* inside the Docker image by running the following command in the console:
+
+```bash
+make bash
+```
+
+This will create a new interactive shell in the Docker Quarto image.
+
+### Remove the Docker image
+
+If you think you'll no more use it, just run `make remove` to remove the Docker image and retrieve disk space.

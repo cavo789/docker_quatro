@@ -1,1 +1,0 @@
-# Bash -  Shellscript {#extensions-sh}

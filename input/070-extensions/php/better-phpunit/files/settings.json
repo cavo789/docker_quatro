@@ -1,4 +1,0 @@
-{
-    "better-phpunit.phpunitBinary": "c:\\your_project\\vendor\\bin\\phpunit.bat",
-    "better-phpunit.xmlConfigFilepath": "c:\\your_project\\phpunit.xml"
-}

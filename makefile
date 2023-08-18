@@ -1,6 +1,9 @@
-CONTAINER_NAME :=$(or $(CONTAINER_NAME),quatro-render)
-QUATRO_PORT_NUMBER :=$(or $(QUATRO_PORT_NUMBER),8080)
-TIMEZONE :=$(or $(TIMEZONE),Europe/Brussels)
+
+# The file we'll convert. Default one is called "index.qmd"
+QMD_FILE :=$(or $(QMD_FILE),index.qmd)
+
+# Shorthand for the volumes we need to share with the Docker image
+VOLUMES=-v ${PWD}/input:/project/input -v ${PWD}/output:/project/output
 
 # When make is fired without arguments, we'll display the help screen.
 # Should be defined before the first included.
@@ -10,30 +13,24 @@ default: help
 help: ## Show the help with the list of commands
 	@clear
     # Parse this file, search for `##` followed by a description
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[0;33m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-7s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[0;33m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 	@echo ""
 
-##@ Quatro
+##@ Quarto
 
 .PHONY: bash
-bash: ## Start an interactive shell session
-# docker run -it bosa/quatro:20.04 /bin/bash
-	COMPOSE_FILE=composer.yaml docker compose exec -it ${CONTAINER_NAME} /bin/bash
+bash: ## Start an interactive shell session. Use ARGS="..." to pass arguments
+	docker run ${ARGS} --rm -it --name quarto ${VOLUMES} bosa/quarto /bin/bash
 
 .PHONY: build
-build: ## Build the Docker image that contains Quatro and required libraries
-	docker build -f .docker/Dockerfile-quarto -t bosa/quatro:20.04 .
+build: ## Build the Docker image that contains Quarto and required libraries. Use ARGS="..." to pass arguments to Docker build (f.i. ARGS="--no-cache")
+	(cd .docker && docker build ${ARGS} --file Dockerfile --tag bosa/quarto:20.04 --tag bosa/quarto:latest . )
 
-# .PHONY: render
-# render: ## Convert the input file to the desired format
-# 	docker build -f .docker/Dockerfile-render -t bosa/quatro:render . --no-cache
+.PHONY: render
+render: ## Convert the input file to the desired format. Use the QMD_FILE argument to specify the filename (f.i. QMD_FILE="readme.qmd").
+	docker run --rm -it --name quarto ${VOLUMES} -u ${UID}:${GID} -e QMD_FILE="${QMD_FILE}"  bosa/quarto
 
-.PHONY: start
-start: ## Open the web interface and show the document
-# @-docker container rm --force ${CONTAINER_NAME} >/dev/null 2>&1 || true
-
-# docker run -d --name ${CONTAINER_NAME} -p ${QUATRO_PORT_NUMBER}:8080 -e TZ=${TIMEZONE} bosa/quatro:static-file
-	COMPOSE_FILE=composer.yaml docker compose up -d
-# docker cp ${CONTAINER_NAME}:/app/ ${PWD}/output
-
-# -@sensible-browser http://127.0.0.1:${QUATRO_PORT_NUMBER}/index.html
+.PHONY: remove
+remove: ## Remove the Docker image from your filesystem
+	-docker image remove bosa/quarto:latest
+	-docker image remove bosa/quarto:20.04

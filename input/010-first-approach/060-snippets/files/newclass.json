@@ -1,7 +1,0 @@
-{
-    "Class": {
-        "prefix": "class",
-        "body": ["class ${TM_FILENAME_BASE}", "{", "    return;", "}"],
-        "description": "Create a new class"
-    }
-}
