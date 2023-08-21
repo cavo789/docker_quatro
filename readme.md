@@ -30,27 +30,22 @@ docker image list | grep bosa/quarto
 
 ### Now use it and render your documentation
 
-Now, every time you'll need to convert a documentation, just run `make render` on the console.
+Now, every time you'll need to convert a documentation, just run `make render` on the console (to use default values).
 
-> ℹ️ **TIP**
-> If you're a developer and you've modified the bash scripts in the .docker folder, just run `make build && make render` to make sure the newer version are taken into account.
+By default, the expected input filename to convert is `index.qmd` and the output format is `html`. If you want to change this, please use `INPUT_FILE` and `OUTPUT_FORMAT` command line arguments like this: `make render INPUT_FILE="your_file.qmd" OUTPUT_FORMAT="pdf"`, for example.
 
-By running `make render`, it's supposed you'll convert a file called `index.qmd`. If this is not your case, please run `make render QMD_FILE="your_file.qmd"` where `your_file.qmd` exists and correspond to the file to render.
-
-Assumptions: by running `make render` it's supposed 
-
-* the source file will be found in a subfolder called `input` and
-* rendered files will be stored in a subfolder called `output`.
-
-To make things explicit, your directory structure will looks be something like below. By running `make render QMD_FILE="your_file.qmd"` in the `/your_project` folder, the script will search for the `input/your_file.qmd` in your directory structure and, if found, will render it and save the result to `output/your_file.html`.
+To make things explicit, your directory structure will looks be something like below. By running `make render` in the `/your_project` folder, the script will search for the `input/input.qmd` in your directory structure and, if found, will render it and save the result to `output/input.html`.
 
 ```text
 /your_project
 ├── input
-│   ├── your_file.qmd
+│   ├── input.qmd
 ├── output
-│   ├── your_file.html
+│   ├── input.html
 ```
+
+> ℹ️ **TIP**
+> If you're a developer and you wish to be able to update and synchronize bash scripts and run updated versions, you can run `make build && make render` after each changes (which is not the fastest way since you'll recreate the image every time) or, easier, share the scripts folder between your host and the Docker container like this: `docker run --rm -it -v ${PWD}/input:/project/input -v ${PWD}/output:/project/output -v ${PWD}/.docker/scripts:/project/scripts bosa/quarto`
 
 ### Starting an interactive shell in the Docker image
 

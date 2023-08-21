@@ -11,10 +11,16 @@ PROJECT_FOLDER="/project"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 
 # The file we'll convert. Default one is called "index.qmd"
-QMD_FILE="${QMD_FILE:-index.qmd}"
+INPUT_FILE="${INPUT_FILE:-index.qmd}"
+
+# The output format. Default will be html
+OUTPUT_FORMAT="${OUTPUT_FORMAT:-html}"
+
+# Our input file (index.qmd) but having the targeted extension (like index.html)
+OUTPUT_FILE=${INPUT_FILE%.qmd}.${OUTPUT_FORMAT}
 
 # Absolute name of the file we'll convert
-INPUT_FILE="${PROJECT_FOLDER}/input/${QMD_FILE}"
+INPUT_FILE_ABSOLUTE_PATH="${PROJECT_FOLDER}/input/${INPUT_FILE}"
 
 # region - private function entrypoint::__initialize
 #
@@ -60,28 +66,32 @@ function entrypoint::__initialize() {
 #
 # endregion
 function entrypoint::__checkPrerequisites() {
+
     if [ ! -d "${PROJECT_FOLDER}/input" ]; then
         console::printError "You don't have yet a ${PROJECT_FOLDER}/input folder; please make sure to mount it."
-        console::printError "This can be done using this command line flag: '-v ${PWD}/input:/project/input'"
-        console::printError "Make sure to specify the folder where you've your input are located."
+        console::printError "This can be done using this command line flag: \"-v \${PWD}/your_source_folder:/project/input\""
+        console::printError "In the example above, \"your_source_folder\" is supposed to be the folder where you've save your .qmd file."
+        console::printError "A valid call on the console can be \"docker run --rm -it -v \${PWD}/input:/project/input -v \${PWD}/output:/project/output bosa/quarto\"."
         exit 1
     fi
 
     if [ ! -d "${PROJECT_FOLDER}/output" ]; then
         console::printError "You don't have yet a ${PROJECT_FOLDER}/output folder; please make sure to mount it."
-        console::printError "This can be done using this command line flag: '-v ${PWD}/output:/project/output'"
-        console::printError "Make sure to specify the folder where you wish to obtain the rendered output."
+        console::printError "This can be done using this command line flag: \"-v \${PWD}/your_output_folder:/project/output\""
+        console::printError "In the example above, \"your_output_folder\" will be where you wish to store rendered files."
+        console::printError "A valid call on the console can be \"docker run --rm -it -v \${PWD}/input:/project/input -v \${PWD}/output:/project/output bosa/quarto\"."
         exit 1
     fi
 
     # Make sure the input file exists
-    if [ ! -f "${INPUT_FILE}" ]; then
-        console::printError "The file ${INPUT_FILE} didn't exists; please use the QMD_FILE argument"
-        console::printError "and specify an existing file like f.i. 'make render QMD_FILE=\"my_documentation.qmd\"'"
-        console::printError "where \"my_documentation.qmd\" exists and is indeed the file you wish to convert."
+    if [ ! -f "${INPUT_FILE_ABSOLUTE_PATH}" ]; then
+        console::printError "The file ${INPUT_FILE_ABSOLUTE_PATH} didn't exist; please be sure to set the INPUT_FILE OS variable."
+        console::printError "This can be done like this: \"docker run --rm -it -v \${PWD}/input:/project/input -v \${PWD}/output:/project/output -e INPUT_FILE=my_documentation.qmd bosa/quarto\"."
+        console::printError "Make sure the specified input file exists."
         exit 1
     fi
 
+    # All tests passed; we can continue
     return 0
 }
 
@@ -113,16 +123,19 @@ EOF
 
     entrypoint::__checkPrerequisites
 
-    # If the .quarto directory didn't exists yet, we are not in a Quarto
+    # If the file _quarto.yml didn't exist yet, we are not in a Quarto
     # project so, just create one
-    if [ ! -d "${PROJECT_FOLDER}/input/.quarto" ]; then
+    if [ ! -f "${PROJECT_FOLDER}/input/_quarto.yml" ]; then
         console::printCyan "Create the Quarto Project"
         quarto create
     fi
 
-    console::printYellow "Rendering ${INPUT_FILE} to the ${PROJECT_FOLDER}/output folder"
+    CMD="quarto render "${INPUT_FILE_ABSOLUTE_PATH}" --to ${OUTPUT_FORMAT} --log-level info"
 
-    (cd "${PROJECT_FOLDER}/output" && quarto render "${INPUT_FILE}" --output-dir "${PROJECT_FOLDER}/output" --log-level info)
+    console::printYellow "Rendering ${INPUT_FILE} to the ${PROJECT_FOLDER}/output folder"
+    console::printGray "$CMD"
+
+    ($CMD && mv "${OUTPUT_FILE}" "${PROJECT_FOLDER}/output")
 
     return 0
 }

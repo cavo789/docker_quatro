@@ -36,9 +36,9 @@ RUN set -e -x && \
     quarto install tool chromium && \
     quarto install tool tinytex
 
-# Install Jupyter
+# Install tools
 RUN set -e -x && \
-    python3 -m pip install jupyter
+    python3 -m pip install jupyter matplotlib plotly
 
 # Install pip dependencies
 RUN set -e -x && \
@@ -46,16 +46,13 @@ RUN set -e -x && \
     pip install pandas
 
 RUN set -e -x && \
-    mkdir -p /project/input && \
-    mkdir -p /project/output && \
     mkdir -p /project/scripts
 
-WORKDIR /project
-
-COPY helpers scripts/helpers
-COPY entrypoint.sh scripts/entrypoint.sh
+COPY scripts /project/scripts
 
 RUN set -e -x && \
-    chmod +x scripts/entrypoint.sh
+    chmod +x /project/scripts/entrypoint.sh
+
+WORKDIR /project/input
 
 CMD [ "/project/scripts/entrypoint.sh" ]
