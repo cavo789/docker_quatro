@@ -1,4 +1,5 @@
 *
 !.gitignore
+!sample.qmd
 
 /.quarto/
