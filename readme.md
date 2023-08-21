@@ -47,6 +47,15 @@ To make things explicit, your directory structure will looks be something like b
 > ℹ️ **TIP**
 > If you're a developer and you wish to be able to update and synchronize bash scripts and run updated versions, you can run `make build && make render` after each changes (which is not the fastest way since you'll recreate the image every time) or, easier, share the scripts folder between your host and the Docker container like this: `docker run --rm -it -v ${PWD}/input:/project/input -v ${PWD}/output:/project/output -v ${PWD}/.docker/scripts:/project/scripts bosa/quarto`
 
+#### Additional parameters
+
+* You can define the logging level by using the `LOG_LEVEL` command line argument. For instance: `make render INPUT_FILE="blog/index.qmd" LOG_LEVEL="debug"`. Don't specify a value for non logging.
+
+#### Tips
+
+* If you only have one `.qmd` file in your folder, you don't need to specify the name of the file. So, `docker run --rm -it -v ${PWD}/input:/project/input -v ${PWD}/output:/project/output -v ${PWD}/.docker/scripts:/project/scripts bosa/quarto` will process the `my_documentation.qmd` file is only that one is present (so will not force to name your file `index.qmd`).
+* Use the `-e DEBUG=1` argument to enable debug output.
+  
 ### Starting an interactive shell in the Docker image
 
 In case of needs, you can *jump* inside the Docker image by running the following command in the console:

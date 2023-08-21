@@ -31,8 +31,13 @@ QUIET=$(if $(findstring --quiet,${ARGS}),true,false)
 # The file we'll convert. Default one is called "index.qmd"
 INPUT_FILE :=$(or $(INPUT_FILE),index.qmd)
 
-# The output format. Default will be html
-OUTPUT_FORMAT :=$(or $(OUTPUT_FORMAT),html)
+# The output format. There is no default since the _quarto.yml file,
+# if present in the input folder, probably mentionned the expected format
+OUTPUT_FORMAT :=$(or $(OUTPUT_FORMAT),)
+
+# The log level for Quarto; possible values are info, warning, error or critical
+# Empty for no log level
+LOG_LEVEL :=$(or $(LOG_LEVEL),)
 
 # Shorthand for the volumes we need to share with the Docker image
 VOLUMES=-v ${PWD}/input:/project/input -v ${PWD}/output:/project/output
@@ -65,7 +70,7 @@ ifeq ($(QUIET),false)
 	@printf "[1;${COLOR_CYAN}m%s[0m\n\n" "     For instance: make render INPUT_FILE=\"my_documentation.qmd\" OUTPUT_FORMAT=\"pdf\""
 endif
 
-	docker run --rm -it --name quarto ${VOLUMES} -u ${UID}:${GID} -e INPUT_FILE="${INPUT_FILE}" -e OUTPUT_FORMAT="${OUTPUT_FORMAT}" bosa/quarto
+	docker run --rm -it --name quarto ${VOLUMES} -u ${UID}:${GID} -e INPUT_FILE="${INPUT_FILE}" -e OUTPUT_FORMAT="${OUTPUT_FORMAT}" -e LOG_LEVEL="${LOG_LEVEL}" bosa/quarto
 # -@sensible-browser output/index.html
 
 .PHONY: remove

@@ -75,7 +75,7 @@ function console::__init() {
     # if [[ ! -v DEBUG ]]; then
     # No, not yet defined so, first initialize it to zero then
     # read once the list of command line options and set the variable to 1 if -d or --debug is found
-    DEBUG=0
+    DEBUG=${DEBUG:-0}
     opts::hasFlag "-d|--debug" && DEBUG=1
     # fi
 
@@ -83,7 +83,7 @@ function console::__init() {
     # if [[ ! -v QUIET ]]; then
     # No, not yet defined so, first initialize it to zero then
     # read once the list of command line options and set the variable to 1 if -v or --QUIET is found
-    QUIET=0
+    QUIET=${QUIET:-0}
     opts::hasFlag "-q|--quiet" && QUIET=1
     # fi
 
@@ -91,7 +91,7 @@ function console::__init() {
     # if [[ ! -v VERBOSE ]]; then
     # No, not yet defined so, first initialize it to zero then
     # read once the list of command line options and set the variable to 1 if -v or --verbose is found
-    VERBOSE=0
+    VERBOSE=${VERBOSE:-0}
     opts::hasFlag "-v|--verbose" && VERBOSE=1
     # fi
 
@@ -869,8 +869,8 @@ function console::verbose() {
 # endregion
 function console::debug() {
     [[ $# == 0 ]] && return 0
-    [[ ${DEBUG:-0} -ne 1 ]] && return 0
-    [[ ${QUIET:-0} -eq 1 ]] && return 0
+    [[ ${DEBUG} -ne 1 ]] && return 0
+    [[ ${QUIET} -eq 1 ]] && return 0
 
     console::printGray >&2 "[$(date +'%Y-%m-%dT%H:%M:%S%z')] [DEBUG] - ${FUNCNAME[1]} - $*"
     return 0
