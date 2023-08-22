@@ -33,11 +33,16 @@ LOG_FILE_NAME="/tmp/quarto.log"
 # Absolute name of the file we'll convert
 INPUT_FILE_ABSOLUTE_PATH="${PROJECT_FOLDER}/input/${INPUT_FILE}"
 
-# Absolute name of the file parent folder
-INPUT_FOLDER_ABSOLUTE_PATH="$(dirname "${INPUT_FILE_ABSOLUTE_PATH}")"
-
 # The command line we'll use to run Quarto and render our file
 QUARTO_COMMAND_LINE=""
+
+# Once the rendering has been done and the resulting files moved
+# to the output folder; did we also need to copy some folders from
+# the input folder to the output folder. This will be the case for, 
+# for instance, images or static files used during the display of the
+# generated files
+# Folders are comma separated ("assets,images,...")
+FOLDERS_TO_COPY=${FOLDERS_TO_COPY:-}
 
 # region - private function entrypoint::__initialize
 #
@@ -101,6 +106,19 @@ function entrypoint::__checkPrerequisites() {
         # Remove the final "/" if present
         INPUT_FILE_ABSOLUTE_PATH="$(echo "${INPUT_FILE_ABSOLUTE_PATH}" | string::rtrim "/")"
         console::printGray "${INPUT_FILE_ABSOLUTE_PATH} is a folder"
+
+        # Count the number of .qmd files in that directory
+        # If more than one, ok we can't continue since we need to know
+        # the name of the file to convert
+        count=$(ls -AU ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd | wc -l)
+
+        if [ $count -gt 1 ]; then
+            console::printError "The folder ${INPUT_FILE_ABSOLUTE_PATH} contains more than one .qmd file"
+            console::printError "Please specify which file has to be rendered. Here is the list of files found:"
+            console::printRed ""
+            console::printRed "$(ls -al ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd)"
+            exit 1
+        fi
         
         FIRST_FILE=$(ls -AU ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd | head -1)
 
@@ -115,6 +133,9 @@ function entrypoint::__checkPrerequisites() {
             
         fi
     fi
+
+    # Absolute name of the file parent folder
+    INPUT_FOLDER_ABSOLUTE_PATH="$(dirname "${INPUT_FILE_ABSOLUTE_PATH}")"
 
     # Make sure the input file exists
     if [ ! -f "${INPUT_FILE_ABSOLUTE_PATH}" ]; then
@@ -166,29 +187,79 @@ function entrypoint::__runQuarto() {
     return 0
 }
 
+# region - private function entrypoint::__moveToOutputDirectoryWhenSiteOrBook
+#
+# When generating a book or a website, Quarto creates directoy called 
+# "_book" or "_site". If found, move that one to the output folder.
+#
+# endregion
+function entrypoint::__moveToOutputDirectoryWhenSiteOrBook() { 
+    declare -A folders
+
+    folders[0]="_book"
+    folders[1]="_site"
+
+    for key in "${!folders[@]}"
+    do
+        # If the folder exists; move it to the output directory
+        if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${folders[$key]}" ]; then
+            console::debug "Create ${OUTPUT_FOLDER}/${folders[$key]}"
+            rm -rf "${OUTPUT_FOLDER}/${folders[$key]}"
+            mv "${INPUT_FOLDER_ABSOLUTE_PATH}/${folders[$key]}" "${OUTPUT_FOLDER}"
+        fi
+    done
+
+    return 0
+}
+
+# region - private function entrypoint::__copyFoldersToCopyToOutputDirectory
+#
+# Once the rendering has been done and the resulting files moved
+# to the output folder; did we also need to copy some folders from
+# the input folder to the output folder. This will be the case for, 
+# for instance, images or static files used during the display of the
+# generated files
+#
+# endregion
+function entrypoint::__copyFoldersToCopyToOutputDirectory {
+    if [ ! -z "${FOLDERS_TO_COPY}" ]; then
+        console::printPurple "Copying folders... ${FOLDERS_TO_COPY}"
+
+        # Folders are comma separated ("folder1,folder2,folder3")
+        export IFS=","
+        for FOLDER_TO_COPY in $FOLDERS_TO_COPY; do
+            if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" ]; then
+                console::printYellow "Copy folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY} to ${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
+                cp -R "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" "${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
+            else
+                console::printError "The folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY} didn't exist"
+                exit 1
+            fi
+        done
+    fi
+}
 # region - private function entrypoint::__moveToOutputDirectory
 #
 # Move rendered files/folders to the output directory
 #
 # endregion
 function entrypoint::__moveToOutputDirectory() { 
-    if [ -d "${OUTPUT_FOLDER}" ]; then
-        console::debug "Erase ${OUTPUT_FOLDER} so don't keep old stuff"
+
+    if [ -d "${OUTPUT_FOLDER}" ] && [ "$(basename "${OUTPUT_FOLDER}")" -neq "." ];  then
+        console::debug "Before copying newest version, erase ${OUTPUT_FOLDER} so don't keep old stuff"
+
+        console::p
         rm -rf "${OUTPUT_FOLDER}"
     fi
 
     console::debug "Create folder ${OUTPUT_FOLDER}" && mkdir -p "${OUTPUT_FOLDER}"
 
-    if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/_site" ]; then
-        console::debug "Create ${OUTPUT_FOLDER}/_site"
-        rm -rf "${OUTPUT_FOLDER}/_site"
-        mv "${INPUT_FOLDER_ABSOLUTE_PATH}/_site" "${OUTPUT_FOLDER}"
-    fi
-
-    # Now, from the log, retrieve the generated file (f.i. "blog.html")
-    # But can be too "_site/index.html" i.e. contains a folder name
+    # Retrieve from the Quarto logfile the name of the generated file (f.i. "blog.html")
+    # Note: can be too "_site/index.html" i.e. contains a folder name
     GENERATED_FILE="$(grep -Po 'Output created: \K(.*)?' ${LOG_FILE_NAME})"
     console::debug "Generated file is ${GENERATED_FILE}"
+
+    entrypoint::__moveToOutputDirectoryWhenSiteOrBook
 
     # Move it to the final, output, directory
     if [ -f "${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FILE}" ]; then
@@ -213,6 +284,8 @@ function entrypoint::__moveToOutputDirectory() {
         rm -rf "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
         mv "${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FOLDER}" "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
     fi
+
+    entrypoint::__copyFoldersToCopyToOutputDirectory
 
     return 0
 }
