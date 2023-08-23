@@ -15,14 +15,11 @@ INPUT_FILE="${INPUT_FILE:-index.qmd}"
 
 # The log level for Quarto; possible values are info, warning, error or critical
 # Empty for no log level
-LOG_LEVEL="${LOG_LEVEL:-""}"
+LOG_LEVEL=${LOG_LEVEL:-}
 
 # The output format. There is no default since the _quarto.yml file,
 # if present in the input folder, probably mentionned the expected format
 OUTPUT_FORMAT="${OUTPUT_FORMAT:-""}"
-
-# Our input file (index.qmd) but having the targeted extension (like index.html)
-OUTPUT_FILE=${INPUT_FILE%.qmd}.${OUTPUT_FORMAT}
 
 # Folder where we'll move our rendered files
 OUTPUT_FOLDER="${PROJECT_FOLDER}/output"
@@ -36,9 +33,14 @@ INPUT_FILE_ABSOLUTE_PATH="${PROJECT_FOLDER}/input/${INPUT_FILE}"
 # The command line we'll use to run Quarto and render our file
 QUARTO_COMMAND_LINE=""
 
+# Once the generation has been completed, are there any files to be
+# copied from the input folder to the one containing the generation result?
+# Files are comma separated ("demo.pdf,samples.json,...")
+FILES_TO_COPY=${FILES_TO_COPY:-}
+
 # Once the rendering has been done and the resulting files moved
 # to the output folder; did we also need to copy some folders from
-# the input folder to the output folder. This will be the case for, 
+# the input folder to the output folder. This will be the case for,
 # for instance, images or static files used during the display of the
 # generated files
 # Folders are comma separated ("assets,images,...")
@@ -48,6 +50,7 @@ FOLDERS_TO_COPY=${FOLDERS_TO_COPY:-}
 #
 # Import helpers and initialize global variables
 #
+# shellcheck disable=SC1090,SC2048,SC2086
 # endregion
 function entrypoint::__initialize() {
     local helpersDir
@@ -59,10 +62,10 @@ function entrypoint::__initialize() {
     source "${helpersDir}/console.sh" $*
 
     # The command line we'll use to run Quarto and render our file
-    QUARTO_COMMAND_LINE="quarto render "${INPUT_FILE_ABSOLUTE_PATH}" --log ${LOG_FILE_NAME}"
+    QUARTO_COMMAND_LINE="quarto render ${INPUT_FILE_ABSOLUTE_PATH} --log ${LOG_FILE_NAME}"
 
     # Did we have a loglevel defined as OS variable? If so, use it
-    [ ! -z "${LOG_LEVEL}" ] && QUARTO_COMMAND_LINE=$(echo "${QUARTO_COMMAND_LINE} --log-level ${LOG_LEVEL}")
+    [ -n "${LOG_LEVEL}" ] && QUARTO_COMMAND_LINE="${QUARTO_COMMAND_LINE} --log-level ${LOG_LEVEL}"
 
     # If the output format was specified on command line / OS, use it
     # Otherwise relay on the _quarto.yml where there is probably the
@@ -72,7 +75,7 @@ function entrypoint::__initialize() {
     #   html:
     #     theme: cosmo
     #     css: styles.css
-    [ ! -z "${OUTPUT_FORMAT}" ] && QUARTO_COMMAND_LINE=$(echo "${QUARTO_COMMAND_LINE} --to ${OUTPUT_FORMAT}")
+    [ -n "${OUTPUT_FORMAT}" ] && QUARTO_COMMAND_LINE="${QUARTO_COMMAND_LINE} --to ${OUTPUT_FORMAT}"
 
     return 0
 }
@@ -110,17 +113,19 @@ function entrypoint::__checkPrerequisites() {
         # Count the number of .qmd files in that directory
         # If more than one, ok we can't continue since we need to know
         # the name of the file to convert
-        count=$(ls -AU ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd | wc -l)
+        # shellcheck disable=SC2012
+        count=$(ls -AU "${INPUT_FILE_ABSOLUTE_PATH}/*.qmd" | wc -l)
 
-        if [ $count -gt 1 ]; then
+        if [[ $count -gt 1 ]]; then
             console::printError "The folder ${INPUT_FILE_ABSOLUTE_PATH} contains more than one .qmd file"
             console::printError "Please specify which file has to be rendered. Here is the list of files found:"
             console::printRed ""
-            console::printRed "$(ls -al ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd)"
+            console::printRed "$(ls -al "${INPUT_FILE_ABSOLUTE_PATH}/*.qmd")"
             exit 1
         fi
-        
-        FIRST_FILE=$(ls -AU ${INPUT_FILE_ABSOLUTE_PATH}/*.qmd | head -1)
+
+        # shellcheck disable=SC2012
+        FIRST_FILE="$(ls -AU "${INPUT_FILE_ABSOLUTE_PATH}/*.qmd" | head -1)"
 
         if [ -f "${FIRST_FILE}" ]; then
             console::printGray "The first retrieved .qmd file was ${FIRST_FILE}, we'll then use that one"
@@ -130,7 +135,7 @@ function entrypoint::__checkPrerequisites() {
 
             # and derive the relative filename
             INPUT_FILE="$(string::replace "${INPUT_FILE_ABSOLUTE_PATH}" "${PROJECT_FOLDER}/input/" "")"
-            
+
         fi
     fi
 
@@ -147,7 +152,7 @@ function entrypoint::__checkPrerequisites() {
 
     # Derive the output folder name; if we need to convert "input/blog/index.qmd"
     # the output folder will be "output/blog"
-    OUTPUT_FOLDER="$(echo "${OUTPUT_FOLDER}/$(dirname "${INPUT_FILE}")")" 
+    OUTPUT_FOLDER="${OUTPUT_FOLDER}/$(dirname "${INPUT_FILE}")"
 
     # All tests passed; we can continue
     return 0
@@ -189,11 +194,11 @@ function entrypoint::__runQuarto() {
 
 # region - private function entrypoint::__moveToOutputDirectoryWhenSiteOrBook
 #
-# When generating a book or a website, Quarto creates directoy called 
+# When generating a book or a website, Quarto creates directoy called
 # "_book" or "_site". If found, move that one to the output folder.
 #
 # endregion
-function entrypoint::__moveToOutputDirectoryWhenSiteOrBook() { 
+function entrypoint::__moveToOutputDirectoryWhenSiteOrBook() {
     declare -A folders
 
     folders[0]="_book"
@@ -204,6 +209,7 @@ function entrypoint::__moveToOutputDirectoryWhenSiteOrBook() {
         # If the folder exists; move it to the output directory
         if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${folders[$key]}" ]; then
             console::debug "Create ${OUTPUT_FOLDER}/${folders[$key]}"
+            # shellcheck disable=SC2115
             rm -rf "${OUTPUT_FOLDER}/${folders[$key]}"
             mv "${INPUT_FOLDER_ABSOLUTE_PATH}/${folders[$key]}" "${OUTPUT_FOLDER}"
         fi
@@ -212,22 +218,39 @@ function entrypoint::__moveToOutputDirectoryWhenSiteOrBook() {
     return 0
 }
 
-# region - private function entrypoint::__copyFoldersToCopyToOutputDirectory
+# region - private function entrypoint::__copyFilesFoldersToCopyToOutputDirectory
 #
 # Once the rendering has been done and the resulting files moved
 # to the output folder; did we also need to copy some folders from
-# the input folder to the output folder. This will be the case for, 
+# the input folder to the output folder. This will be the case for,
 # for instance, images or static files used during the display of the
 # generated files
 #
 # endregion
-function entrypoint::__copyFoldersToCopyToOutputDirectory {
-    if [ ! -z "${FOLDERS_TO_COPY}" ]; then
+function entrypoint::__copyFilesFoldersToCopyToOutputDirectory {
+    if [ -n "${FILES_TO_COPY}" ]; then
+        console::printPurple "Copying files... ${FILES_TO_COPY}"
+
+        # Files are comma separated ("folder1,folder2,folder3")
+        export IFS=","
+
+        for FILE_TO_COPY in ${FILES_TO_COPY}; do
+            if [ -f "${INPUT_FOLDER_ABSOLUTE_PATH}/${FILE_TO_COPY}" ]; then
+                console::printYellow "Copy file ${INPUT_FOLDER_ABSOLUTE_PATH}/${FILE_TO_COPY} to ${OUTPUT_FOLDER}/${FILE_TO_COPY}"
+                cp "${INPUT_FOLDER_ABSOLUTE_PATH}/${FILE_TO_COPY}" "${OUTPUT_FOLDER}/${FILE_TO_COPY}"
+            else
+                console::printError "The file ${INPUT_FOLDER_ABSOLUTE_PATH}/${FILE_TO_COPY} didn't exist"
+                exit 1
+            fi
+        done
+    fi
+
+    if [ -n "${FOLDERS_TO_COPY}" ]; then
         console::printPurple "Copying folders... ${FOLDERS_TO_COPY}"
 
         # Folders are comma separated ("folder1,folder2,folder3")
         export IFS=","
-        for FOLDER_TO_COPY in $FOLDERS_TO_COPY; do
+        for FOLDER_TO_COPY in ${FOLDERS_TO_COPY}; do
             if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" ]; then
                 console::printYellow "Copy folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY} to ${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
                 cp -R "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" "${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
@@ -238,17 +261,16 @@ function entrypoint::__copyFoldersToCopyToOutputDirectory {
         done
     fi
 }
+
 # region - private function entrypoint::__moveToOutputDirectory
 #
 # Move rendered files/folders to the output directory
 #
 # endregion
-function entrypoint::__moveToOutputDirectory() { 
+function entrypoint::__moveToOutputDirectory() {
 
-    if [ -d "${OUTPUT_FOLDER}" ] && [ "$(basename "${OUTPUT_FOLDER}")" -neq "." ];  then
+    if [ -d "${OUTPUT_FOLDER}" ] && [ "$(basename "${OUTPUT_FOLDER}")" != "." ];  then
         console::debug "Before copying newest version, erase ${OUTPUT_FOLDER} so don't keep old stuff"
-
-        console::p
         rm -rf "${OUTPUT_FOLDER}"
     fi
 
@@ -275,17 +297,20 @@ function entrypoint::__moveToOutputDirectory() {
         mv "${INPUT_FOLDER_ABSOLUTE_PATH}/.quarto" "${OUTPUT_FOLDER}/.quarto"
     fi
 
-    # Quarto will generate a folder called "blog_files" during the 
+    # Quarto will generate a folder called "blog_files" during the
     # rendering of the "blog.qmd" file so check if such folder exists
     # and if so, move it to the output folder too
-    GENERATED_FOLDER="$(basename ${INPUT_FILE} .qmd)_files"
+    # Syntax below will remove the ".qmd" extension
+    GENERATED_FOLDER="$(basename "${INPUT_FILE}" .qmd)_files"
+
     if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FOLDER}" ]; then
         console::debug "Move folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FOLDER} to ${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
+        # shellcheck disable=SC2115
         rm -rf "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
         mv "${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FOLDER}" "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
     fi
 
-    entrypoint::__copyFoldersToCopyToOutputDirectory
+    entrypoint::__copyFilesFoldersToCopyToOutputDirectory
 
     return 0
 }
@@ -304,13 +329,13 @@ function __main() {
 
     # http://patorjk.com/software/taag/#p=display&f=Big&t=Docker-quarto
     cat <<\EOF
-  _____             _                     ____                   _        
- |  __ \           | |                   / __ \                 | |       
- | |  | | ___   ___| | _____ _ __ ______| |  | |_   _  __ _ _ __| |_ ___  
- | |  | |/ _ \ / __| |/ / _ \ '__|______| |  | | | | |/ _` | '__| __/ _ \ 
+  _____             _                     ____                   _
+ |  __ \           | |                   / __ \                 | |
+ | |  | | ___   ___| | _____ _ __ ______| |  | |_   _  __ _ _ __| |_ ___
+ | |  | |/ _ \ / __| |/ / _ \ '__|______| |  | | | | |/ _` | '__| __/ _ \
  | |__| | (_) | (__|   <  __/ |         | |__| | |_| | (_| | |  | || (_) |
- |_____/ \___/ \___|_|\_\___|_|          \___\_\\__,_|\__,_|_|   \__\___/ 
-                                                                         
+ |_____/ \___/ \___|_|\_\___|_|          \___\_\\__,_|\__,_|_|   \__\___/
+
 
 EOF
     printf "%s\n\n" "SPF BOSA IOD AS - PHP Dev Team"

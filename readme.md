@@ -84,7 +84,7 @@ For this to work, you should use the `INPUT_FOLDER` argument and set to the root
 
 You can define the logging level by using the `LOG_LEVEL` command line argument. For instance: `make render LOG_LEVEL="debug"`. Don't specify a value for non logging.
 
-##### Copying folders after rendering
+##### Copying files or folders after rendering
 
 Imagine this situation: you've a `.qmd` with links to static files like images or files (links to PDF or whatever).
 
@@ -119,6 +119,8 @@ Here is an illustration of the folder's structure you'll have after the renderin
 │   │   ├── ...
 │   ├── input.html
 ```
+
+The `FILES_TO_COPY` argument deserves the same functionality when files are not stored in a sub-directory but in the same folder than the `.qmd` file.
 
 #### Tips
 

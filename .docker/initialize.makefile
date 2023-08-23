@@ -23,6 +23,14 @@ ifneq ("$(FORMAT)","")
 	DOCKER_FORMAT :=-e OUTPUT_FORMAT=${FORMAT}
 endif
 
+# Once the generation has been completed, are there any files to be
+# copied from the input folder to the one containing the generation result?
+# Files are comma separated ("demo.pdf,samples.json,...")
+DOCKER_FILES_TO_COPY=
+ifneq ("$(FILES_TO_COPY)","")
+	DOCKER_FILES_TO_COPY :=-e FILES_TO_COPY=${FILES_TO_COPY}
+endif
+
 # Once the generation has been completed, are there any folders to be
 # copied from the input folder to the one containing the generation result?
 # Folders are comma separated ("assets,images,...")
@@ -36,7 +44,7 @@ endif
 # LOG_LEVEL :=$(or $(LOG_LEVEL),"")
 DOCKER_LOG_LEVEL=
 ifneq ("$(LOG_LEVEL)","")
-	DOCKER_LOG_LEVEL :=-e LOG_LEVEL=\"${LOG_LEVEL}\"
+	DOCKER_LOG_LEVEL :=-e LOG_LEVEL=${LOG_LEVEL}
 endif
 
 # Did we need to show debug information's?
