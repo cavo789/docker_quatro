@@ -223,7 +223,8 @@ function entrypoint::__runQuarto() {
     # Remove the previous log
     [ -f ${LOG_FILE_NAME} ] && rm -f ${LOG_FILE_NAME}
 
-    mkdir -p "${OUTPUT_FOLDER}"
+    mkdir -p "${OUTPUT_FOLDER}" && entrypoint::__createOutputDirectoryGitignoreFile
+
     if [ -d "${OUTPUT_FOLDER}" ] && [ "${OUTPUT_FOLDER}" != "${PROJECT_FOLDER}/output" ];  then
         # Don't remove the folder /project/output but well when it's a 
         # subdirectory
@@ -300,6 +301,23 @@ function entrypoint::__moveToOutputDirectory() {
     return 0
 }
 
+
+# region - private function entrypoint::__createOutputDirectoryGitignoreFile
+#
+# When using versioning software like github/gitlab, we can ignore the 
+# output folder since we just need to run the `quarto render` command to
+# rebuild it. No need to push it on a server.
+#
+# endregion
+function entrypoint::__createOutputDirectoryGitignoreFile() {
+    if [ ! -f "${OUTPUT_FOLDER}/.gitignore" ]; then
+        echo "*" > "${OUTPUT_FOLDER}/.gitignore"
+        echo "!.gitignore" >> "${OUTPUT_FOLDER}/.gitignore"
+    fi
+
+    return 0
+}
+
 # region - private function entrypoint::__moveToOutputDirectoryWhenSiteOrBook
 #
 # When generating a book or a website, Quarto creates directoy called
@@ -364,6 +382,7 @@ function entrypoint::__copyFilesFoldersToCopyToOutputDirectory {
             for FOLDER_TO_COPY in ${FOLDERS_TO_COPY}; do
                 if [ -d "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" ]; then
                     console::printYellow "Copy folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY} to ${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
+                    rm -rf "${OUTPUT_FOLDER}/${FOLDER_TO_COPY}" 2>/dev/null
                     cp -R "${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY}" "${OUTPUT_FOLDER}/${FOLDER_TO_COPY}"
                 else
                     console::printError "The folder ${INPUT_FOLDER_ABSOLUTE_PATH}/${FOLDER_TO_COPY} didn't exist"
