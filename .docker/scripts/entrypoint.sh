@@ -244,6 +244,10 @@ function entrypoint::__runQuarto() {
         entrypoint::__moveToOutputDirectory ${FILE}
     done
 
+    # Copy files/folders has to be done only once; even when INPUT_FILES
+    # contains several items.
+    entrypoint::__copyFilesFoldersToCopyToOutputDirectory
+
     return 0
 }
 
@@ -292,8 +296,6 @@ function entrypoint::__moveToOutputDirectory() {
         rm -rf "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
         mv "${INPUT_FOLDER_ABSOLUTE_PATH}/${GENERATED_FOLDER}" "${OUTPUT_FOLDER}/${GENERATED_FOLDER}"
     fi
-
-    entrypoint::__copyFilesFoldersToCopyToOutputDirectory
 
     return 0
 }
